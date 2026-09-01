@@ -1,0 +1,21 @@
+#!/bin/sh
+
+set -eu
+
+TEST_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)
+SCRIPT_DIR=$(CDPATH= cd -- "$TEST_DIR/../scripts" && pwd -P)
+# shellcheck source=SCRIPTDIR/../scripts/common.sh
+. "$SCRIPT_DIR/common.sh"
+
+IMAGE=${MYPI_IMAGE:-mypi:test}
+PI_VERSION=${PI_VERSION:-}
+
+MYPI_IMAGE=$IMAGE PI_VERSION=$PI_VERSION "$SCRIPT_DIR/build"
+
+USER=$(podman image inspect --format '{{.Config.User}}' "$IMAGE")
+ENTRYPOINT=$(podman image inspect --format '{{json .Config.Entrypoint}}' "$IMAGE")
+
+[ "$USER" = pi ] || die "expected image user pi, got $USER"
+[ "$ENTRYPOINT" = '["pi"]' ] || die "expected pi entrypoint, got $ENTRYPOINT"
+
+printf 'Build test passed for %s\n' "$IMAGE"

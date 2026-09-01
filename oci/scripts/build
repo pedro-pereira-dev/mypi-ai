@@ -1,0 +1,30 @@
+#!/bin/sh
+
+set -eu
+
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)
+# shellcheck source=SCRIPTDIR/common.sh
+. "$SCRIPT_DIR/common.sh"
+
+require_podman
+IMAGE=${MYPI_IMAGE:-mypi:local}
+PI_VERSION=${PI_VERSION:-}
+CONTEXT_DIR=$(absolute_dir "$SCRIPT_DIR/../image")
+
+if [ -n "$PI_VERSION" ]; then
+    printf 'Building %s with Pi %s\n' "$IMAGE" "$PI_VERSION"
+else
+    printf 'Building %s with the latest Pi version\n' "$IMAGE"
+fi
+
+podman build \
+    --build-arg "PI_VERSION=$PI_VERSION" \
+    --file "$CONTEXT_DIR/Containerfile" \
+    --tag "$IMAGE" \
+    "$CONTEXT_DIR"
+
+ACTUAL_VERSION=$(podman run --rm "$IMAGE" --version)
+if [ -n "$PI_VERSION" ]; then
+    [ "$ACTUAL_VERSION" = "$PI_VERSION" ] || die "expected Pi $PI_VERSION, got $ACTUAL_VERSION"
+fi
+printf 'Built %s with Pi %s\n' "$IMAGE" "$ACTUAL_VERSION"
