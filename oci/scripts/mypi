@@ -2,14 +2,22 @@
 
 set -eu
 
-SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)
-# shellcheck source=SCRIPTDIR/common.sh
-. "$SCRIPT_DIR/common.sh"
+die() {
+    printf '%s\n' "mypi: $*" >&2
+    exit 1
+}
 
-require_podman
+absolute_dir() {
+    [ -d "$1" ] || die "directory does not exist: $1"
+    (CDPATH= cd -- "$1" && pwd -P)
+}
+
+command -v podman >/dev/null 2>&1 || die "Podman is not installed"
+podman info >/dev/null 2>&1 || die "Podman is not running or is not accessible"
+
 IMAGE=${MYPI_IMAGE:-mypi:local}
 PROJECT_DIR=$(absolute_dir "${MYPI_PROJECT:-$(pwd)}")
-CONFIG_DIR=${MYPI_CONFIG_DIR:-$HOME/.config-mypi}
+CONFIG_DIR=${MYPI_CONFIG_DIR:-$HOME/.config/mypi}
 CPUS=${MYPI_CPUS:-4}
 MEMORY=${MYPI_MEMORY:-4g}
 TMP_SIZE=${MYPI_TMP_SIZE:-512m}

@@ -4,8 +4,11 @@ set -eu
 
 TEST_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)
 SCRIPT_DIR=$(CDPATH= cd -- "$TEST_DIR/../scripts" && pwd -P)
-# shellcheck source=SCRIPTDIR/../scripts/common.sh
-. "$SCRIPT_DIR/common.sh"
+
+die() {
+    printf '%s\n' "mypi: $*" >&2
+    exit 1
+}
 
 IMAGE=${MYPI_IMAGE:-mypi:test}
 PI_VERSION=${PI_VERSION:-}

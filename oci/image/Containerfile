@@ -1,6 +1,4 @@
-FROM node:lts-bookworm-slim
-
-ARG PI_VERSION
+FROM node:lts-bookworm-slim AS runtime-base
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
@@ -8,11 +6,19 @@ RUN apt-get update \
         ca-certificates \
         git \
         ripgrep \
-    && rm -rf /var/lib/apt/lists/* \
-    && PI_PACKAGE=@earendil-works/pi-coding-agent \
+    && rm -rf /var/lib/apt/lists/*
+
+FROM runtime-base AS pi-builder
+
+ARG PI_VERSION
+RUN PI_PACKAGE=@earendil-works/pi-coding-agent \
     && if [ -n "$PI_VERSION" ]; then PI_PACKAGE="${PI_PACKAGE}@${PI_VERSION}"; fi \
-    && npm install --global --ignore-scripts "$PI_PACKAGE" \
-    && pi --version
+    && npm install --global --ignore-scripts --prefix /opt/pi "$PI_PACKAGE" \
+    && /opt/pi/bin/pi --version
+
+FROM runtime-base AS runtime
+
+COPY --from=pi-builder /opt/pi /opt/pi
 
 RUN userdel --remove node 2>/dev/null || true; \
     groupdel node 2>/dev/null || true; \
@@ -22,6 +28,7 @@ RUN userdel --remove node 2>/dev/null || true; \
     chown -R pi:pi /workspace /home/pi
 
 ENV HOME=/home/pi \
+    PATH=/opt/pi/bin:$PATH \
     NPM_CONFIG_CACHE=/home/pi/.pi/agent/cache/npm \
     PI_CODING_AGENT_DIR=/home/pi/.pi/agent
 

@@ -4,10 +4,14 @@ set -eu
 
 TEST_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)
 SCRIPT_DIR=$(CDPATH= cd -- "$TEST_DIR/../scripts" && pwd -P)
-# shellcheck source=SCRIPTDIR/../scripts/common.sh
-. "$SCRIPT_DIR/common.sh"
 
-require_podman
+die() {
+    printf '%s\n' "mypi: $*" >&2
+    exit 1
+}
+
+command -v podman >/dev/null 2>&1 || die "Podman is not installed"
+podman info >/dev/null 2>&1 || die "Podman is not running or is not accessible"
 
 IMAGE=${MYPI_IMAGE:-mypi:test}
 TMP_ROOT=$(mktemp -d "${TMPDIR:-/tmp}/mypi-run.XXXXXX")

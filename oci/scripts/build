@@ -3,13 +3,18 @@
 set -eu
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)
-# shellcheck source=SCRIPTDIR/common.sh
-. "$SCRIPT_DIR/common.sh"
 
-require_podman
+die() {
+    printf '%s\n' "mypi: $*" >&2
+    exit 1
+}
+
+command -v podman >/dev/null 2>&1 || die "Podman is not installed"
+podman info >/dev/null 2>&1 || die "Podman is not running or is not accessible"
+
 IMAGE=${MYPI_IMAGE:-mypi:local}
 PI_VERSION=${PI_VERSION:-}
-CONTEXT_DIR=$(absolute_dir "$SCRIPT_DIR/../image")
+CONTEXT_DIR=$(CDPATH= cd -- "$SCRIPT_DIR/../image" && pwd -P)
 
 if [ -n "$PI_VERSION" ]; then
     printf 'Building %s with Pi %s\n' "$IMAGE" "$PI_VERSION"
