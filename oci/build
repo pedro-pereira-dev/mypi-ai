@@ -1,34 +1,10 @@
 #!/bin/sh
-
 set -eu
 
-OCI_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)
-IMAGE=${MYPI_IMAGE:-mypi:local}
-PI_VERSION=${PI_VERSION:-}
-
-fail() {
-    printf 'mypi: %s\n' "$*" >&2
-    exit 1
-}
-
-command -v podman >/dev/null 2>&1 || fail "Podman is not installed"
-podman info >/dev/null 2>&1 || fail "Podman is not running or is not accessible"
-
-if [ -n "$PI_VERSION" ]; then
-    printf 'Building %s with Pi %s\n' "$IMAGE" "$PI_VERSION"
-else
-    printf 'Building %s with the latest Pi version\n' "$IMAGE"
-fi
+OCI_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 
 podman build \
-    --build-arg "PI_VERSION=$PI_VERSION" \
-    --file "$OCI_DIR/containerfile" \
-    --tag "$IMAGE" \
-    "$OCI_DIR"
-
-INSTALLED_VERSION=$(podman run --rm "$IMAGE" --version)
-if [ -n "$PI_VERSION" ] && [ "$INSTALLED_VERSION" != "$PI_VERSION" ]; then
-    fail "expected Pi $PI_VERSION, got $INSTALLED_VERSION"
-fi
-
-printf 'Built %s with Pi %s\n' "$IMAGE" "$INSTALLED_VERSION"
+  --build-arg "PI_VERSION=${PI_VERSION:-}" \
+  --file "$OCI_DIR/containerfile" \
+  --tag "${MYPI_IMAGE:-mypi:local}" \
+  "$OCI_DIR"

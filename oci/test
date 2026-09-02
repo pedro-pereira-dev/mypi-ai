@@ -2,7 +2,7 @@
 
 set -eu
 
-OCI_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)
+OCI_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
 IMAGE=${MYPI_IMAGE:-mypi:test}
 PI_VERSION=${PI_VERSION:-}
 TEST_DIR=$(mktemp -d "${TMPDIR:-/tmp}/mypi-test.XXXXXX")
@@ -43,8 +43,12 @@ MYPI_IMAGE=$IMAGE PI_VERSION=$PI_VERSION "$OCI_DIR/build"
 
 IMAGE_USER=$(podman image inspect --format '{{.Config.User}}' "$IMAGE")
 IMAGE_ENTRYPOINT=$(podman image inspect --format '{{json .Config.Entrypoint}}' "$IMAGE")
+INSTALLED_VERSION=$(podman run --rm "$IMAGE" --version)
 [ "$IMAGE_USER" = node ] || fail "expected image user node, got $IMAGE_USER"
 [ "$IMAGE_ENTRYPOINT" = '["pi"]' ] || fail "expected pi entrypoint, got $IMAGE_ENTRYPOINT"
+if [ -n "$PI_VERSION" ] && [ "$INSTALLED_VERSION" != "$PI_VERSION" ]; then
+    fail "expected Pi $PI_VERSION, got $INSTALLED_VERSION"
+fi
 
 OUTPUT=$(
     MYPI_IMAGE=$IMAGE \

@@ -15,7 +15,7 @@ fail() {
 
 resolve_directory() {
   [ -d "$1" ] || fail "directory does not exist: $1"
-  (CDPATH= cd -- "$1" && pwd -P)
+    (CDPATH='' cd -- "$1" && pwd -P)
 }
 
 command -v podman >/dev/null 2>&1 || fail "Podman is not installed"
