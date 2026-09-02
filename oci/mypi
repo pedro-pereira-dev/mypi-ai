@@ -61,5 +61,5 @@ exec podman run \
   --memory "$MEMORY" \
   --tmpfs "/tmp:rw,nosuid,nodev,size=$TMP_SIZE,mode=1777" \
   --mount "type=bind,source=$PROJECT_DIR,target=/workspace" \
-  --mount "type=bind,source=$CONFIG_DIR,target=/home/pi/.pi/agent" \
+    --mount "type=bind,source=$CONFIG_DIR,target=/home/node/.pi/agent" \
   "$IMAGE" "$@"

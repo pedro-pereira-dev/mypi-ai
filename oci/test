@@ -43,7 +43,7 @@ MYPI_IMAGE=$IMAGE PI_VERSION=$PI_VERSION "$OCI_DIR/build"
 
 IMAGE_USER=$(podman image inspect --format '{{.Config.User}}' "$IMAGE")
 IMAGE_ENTRYPOINT=$(podman image inspect --format '{{json .Config.Entrypoint}}' "$IMAGE")
-[ "$IMAGE_USER" = pi ] || fail "expected image user pi, got $IMAGE_USER"
+[ "$IMAGE_USER" = node ] || fail "expected image user node, got $IMAGE_USER"
 [ "$IMAGE_ENTRYPOINT" = '["pi"]' ] || fail "expected pi entrypoint, got $IMAGE_ENTRYPOINT"
 
 OUTPUT=$(
