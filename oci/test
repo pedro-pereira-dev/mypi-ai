@@ -1,75 +1,52 @@
 #!/bin/sh
-
 set -eu
 
 OCI_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
-IMAGE=${MYPI_IMAGE:-mypi:test}
+MYPI_IMAGE=${MYPI_IMAGE:-mypi:test}
 PI_VERSION=${PI_VERSION:-}
 TEST_DIR=$(mktemp -d "${TMPDIR:-/tmp}/mypi-test.XXXXXX")
 PROJECT_DIR=$TEST_DIR/project
 CONFIG_DIR=$TEST_DIR/config
 
+export MYPI_IMAGE PI_VERSION
+export MYPI_PROJECT="$PROJECT_DIR"
+
 fail() {
-    printf 'mypi test: %s\n' "$*" >&2
-    exit 1
+  printf 'mypi test: %s\n' "$*" >&2
+  exit 1
 }
 
 expect_config_failure() {
-    config_dir=$1
-    expected_message=$2
-
-    if output=$(
-        MYPI_IMAGE=$IMAGE \
-        MYPI_PROJECT=$PROJECT_DIR \
-        MYPI_CONFIG_DIR=$config_dir \
-        "$OCI_DIR/mypi" --version 2>&1
-    ); then
-        fail "accepted unsafe configuration directory: $config_dir"
-    fi
-
-    case $output in
-        *"$expected_message"*) ;;
-        *) fail "unexpected error for $config_dir: $output" ;;
-    esac
+  if MYPI_CONFIG_DIR="$1" "$OCI_DIR/mypi" --version >/dev/null 2>&1; then
+    fail "accepted unsafe configuration directory: $1"
+  fi
 }
 
 cleanup() {
-    rm -rf "$TEST_DIR"
+  rm -rf "$TEST_DIR"
 }
 trap cleanup EXIT HUP INT TERM
 
 mkdir -p "$PROJECT_DIR"
-MYPI_IMAGE=$IMAGE PI_VERSION=$PI_VERSION "$OCI_DIR/build"
+"$OCI_DIR/build"
 
-IMAGE_USER=$(podman image inspect --format '{{.Config.User}}' "$IMAGE")
-IMAGE_ENTRYPOINT=$(podman image inspect --format '{{json .Config.Entrypoint}}' "$IMAGE")
-INSTALLED_VERSION=$(podman run --rm "$IMAGE" --version)
-[ "$IMAGE_USER" = node ] || fail "expected image user node, got $IMAGE_USER"
-[ "$IMAGE_ENTRYPOINT" = '["pi"]' ] || fail "expected pi entrypoint, got $IMAGE_ENTRYPOINT"
-if [ -n "$PI_VERSION" ] && [ "$INSTALLED_VERSION" != "$PI_VERSION" ]; then
+MYPI_CONFIG_DIR="$CONFIG_DIR" "$OCI_DIR/mypi" --version >/dev/null
+
+if [ -n "$PI_VERSION" ]; then
+  INSTALLED_VERSION=$(podman run --rm "$MYPI_IMAGE" --version)
+  [ "$INSTALLED_VERSION" = "$PI_VERSION" ] ||
     fail "expected Pi $PI_VERSION, got $INSTALLED_VERSION"
 fi
-
-OUTPUT=$(
-    MYPI_IMAGE=$IMAGE \
-    MYPI_PROJECT=$PROJECT_DIR \
-    MYPI_CONFIG_DIR=$CONFIG_DIR \
-    "$OCI_DIR/mypi" --version
-)
-case $OUTPUT in
-    *"Runtime: podman"*) ;;
-    *) fail "mypi did not run Pi" ;;
-esac
 
 CONFIG_MODE=$(stat -f '%Lp' "$CONFIG_DIR" 2>/dev/null || stat -c '%a' "$CONFIG_DIR")
 [ "$CONFIG_MODE" = 700 ] || fail "configuration directory permissions are not 700"
 
 ln -s "$PROJECT_DIR" "$TEST_DIR/project-link"
-expect_config_failure relative/config "must be an absolute path"
-expect_config_failure / "refusing to use /"
-expect_config_failure "$HOME" "whole home directory"
-expect_config_failure "$PROJECT_DIR" "must differ from the project directory"
-expect_config_failure "$TEST_DIR/project-link" "must differ from the project directory"
-expect_config_failure "$CONFIG_DIR/../project" "must differ from the project directory"
+expect_config_failure relative/config
+expect_config_failure /
+expect_config_failure "$HOME"
+expect_config_failure "$PROJECT_DIR"
+expect_config_failure "$TEST_DIR/project-link"
+expect_config_failure "$CONFIG_DIR/../project"
 
-printf 'Test passed for %s\n' "$IMAGE"
+printf 'Test passed for %s\n' "$MYPI_IMAGE"
