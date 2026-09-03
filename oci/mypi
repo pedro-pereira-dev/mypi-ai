@@ -53,6 +53,7 @@ exec podman run \
   --rm \
   --interactive \
   --tty="$TTY" \
+  --userns=keep-id \
   --user "$HOST_UID:$HOST_GID" \
   --read-only \
   --cap-drop ALL \

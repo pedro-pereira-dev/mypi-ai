@@ -1,22 +1,22 @@
 FROM node:lts-bookworm-slim
 
-ARG PI_VERSION
+ARG PI_VERSION=latest
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         ca-certificates \
         git \
         ripgrep \
-    && rm -rf /var/lib/apt/lists/* \
-    && PI_PACKAGE=@earendil-works/pi-coding-agent \
-    && if [ -n "$PI_VERSION" ]; then PI_PACKAGE="${PI_PACKAGE}@${PI_VERSION}"; fi \
-    && npm install --global --ignore-scripts "$PI_PACKAGE" \
-    && npm cache clean --force \
-    && mkdir -p /home/node/.pi/agent \
-    && chown -R node:node /home/node
+    && rm -rf /var/lib/apt/lists/*
+
+RUN npm install --global --ignore-scripts \
+        "@earendil-works/pi-coding-agent@$PI_VERSION" \
+    && npm cache clean --force
 
 ENV HOME=/home/node \
     PI_CODING_AGENT_DIR=/home/node/.pi/agent
+
+RUN install -d -o node -g node "$PI_CODING_AGENT_DIR"
 
 USER node
 WORKDIR /workspace

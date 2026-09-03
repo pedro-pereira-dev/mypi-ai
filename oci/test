@@ -32,13 +32,23 @@ mkdir -p "$PROJECT_DIR"
 
 MYPI_CONFIG_DIR="$CONFIG_DIR" "$OCI_DIR/mypi" --version >/dev/null
 
+podman run --rm \
+  --userns=keep-id \
+  --user "$(id -u):$(id -g)" \
+  --entrypoint /bin/sh \
+  --mount "type=bind,source=$CONFIG_DIR,target=/home/node/.pi/agent" \
+  "$MYPI_IMAGE" \
+  -c 'mkdir -p /home/node/.pi/agent/sessions/--workspace--'
+[ -d "$CONFIG_DIR/sessions/--workspace--" ] ||
+  fail "container user could not write to the configuration directory"
+
 if [ -n "$PI_VERSION" ]; then
   INSTALLED_VERSION=$(podman run --rm "$MYPI_IMAGE" --version)
   [ "$INSTALLED_VERSION" = "$PI_VERSION" ] ||
     fail "expected Pi $PI_VERSION, got $INSTALLED_VERSION"
 fi
 
-CONFIG_MODE=$(stat -f '%Lp' "$CONFIG_DIR" 2>/dev/null || stat -c '%a' "$CONFIG_DIR")
+CONFIG_MODE=$(stat -c '%a' "$CONFIG_DIR" 2>/dev/null || stat -f '%Lp' "$CONFIG_DIR")
 [ "$CONFIG_MODE" = 700 ] || fail "configuration directory permissions are not 700"
 
 ln -s "$PROJECT_DIR" "$TEST_DIR/project-link"
