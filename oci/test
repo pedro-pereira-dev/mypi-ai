@@ -1,0 +1,62 @@
+#!/bin/sh
+set -eu
+
+OCI_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
+MYPI_IMAGE=${MYPI_IMAGE:-mypi:test}
+PI_VERSION=${PI_VERSION:-}
+TEST_DIR=$(mktemp -d "${TMPDIR:-/tmp}/mypi-test.XXXXXX")
+PROJECT_DIR=$TEST_DIR/project
+CONFIG_DIR=$TEST_DIR/config
+
+export MYPI_IMAGE PI_VERSION
+export MYPI_PROJECT="$PROJECT_DIR"
+
+fail() {
+  printf 'mypi test: %s\n' "$*" >&2
+  exit 1
+}
+
+expect_config_failure() {
+  if MYPI_CONFIG_DIR="$1" "$OCI_DIR/mypi" --version >/dev/null 2>&1; then
+    fail "accepted unsafe configuration directory: $1"
+  fi
+}
+
+cleanup() {
+  rm -rf "$TEST_DIR"
+}
+trap cleanup EXIT HUP INT TERM
+
+mkdir -p "$PROJECT_DIR"
+"$OCI_DIR/build"
+
+MYPI_CONFIG_DIR="$CONFIG_DIR" "$OCI_DIR/mypi" --version >/dev/null
+
+podman run --rm \
+  --userns=keep-id \
+  --user "$(id -u):$(id -g)" \
+  --entrypoint /bin/sh \
+  --mount "type=bind,source=$CONFIG_DIR,target=/home/node/.pi/agent" \
+  "$MYPI_IMAGE" \
+  -c 'mkdir -p /home/node/.pi/agent/sessions/--workspace--'
+[ -d "$CONFIG_DIR/sessions/--workspace--" ] ||
+  fail "container user could not write to the configuration directory"
+
+if [ -n "$PI_VERSION" ]; then
+  INSTALLED_VERSION=$(podman run --rm "$MYPI_IMAGE" --version)
+  [ "$INSTALLED_VERSION" = "$PI_VERSION" ] ||
+    fail "expected Pi $PI_VERSION, got $INSTALLED_VERSION"
+fi
+
+CONFIG_MODE=$(stat -c '%a' "$CONFIG_DIR" 2>/dev/null || stat -f '%Lp' "$CONFIG_DIR")
+[ "$CONFIG_MODE" = 700 ] || fail "configuration directory permissions are not 700"
+
+ln -s "$PROJECT_DIR" "$TEST_DIR/project-link"
+expect_config_failure relative/config
+expect_config_failure /
+expect_config_failure "$HOME"
+expect_config_failure "$PROJECT_DIR"
+expect_config_failure "$TEST_DIR/project-link"
+expect_config_failure "$CONFIG_DIR/../project"
+
+printf 'Test passed for %s\n' "$MYPI_IMAGE"

@@ -1,0 +1,10 @@
+#!/bin/sh
+set -eu
+
+OCI_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd -P)
+
+podman build \
+  --build-arg "PI_VERSION=${PI_VERSION:-latest}" \
+  --file "$OCI_DIR/containerfile" \
+  --tag "${MYPI_IMAGE:-mypi:local}" \
+  "$OCI_DIR"

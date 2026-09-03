@@ -1,0 +1,23 @@
+FROM node:lts-bookworm-slim
+
+ARG PI_VERSION=latest
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        git \
+        ripgrep \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN npm install --global --ignore-scripts \
+        "@earendil-works/pi-coding-agent@$PI_VERSION" \
+    && npm cache clean --force
+
+ENV HOME=/home/node \
+    PI_CODING_AGENT_DIR=/home/node/.pi/agent
+
+RUN install -d -o node -g node "$PI_CODING_AGENT_DIR"
+
+USER node
+WORKDIR /workspace
+ENTRYPOINT ["pi"]

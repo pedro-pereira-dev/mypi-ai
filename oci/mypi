@@ -1,0 +1,66 @@
+#!/bin/sh
+set -eu
+
+IMAGE=${MYPI_IMAGE:-mypi:local}
+PROJECT_DIR=${MYPI_PROJECT:-$(pwd)}
+CONFIG_DIR=${MYPI_CONFIG_DIR:-$HOME/.config/mypi}
+CPUS=${MYPI_CPUS:-4}
+MEMORY=${MYPI_MEMORY:-4g}
+TMP_SIZE=${MYPI_TMP_SIZE:-512m}
+
+fail() {
+  printf 'mypi: %s\n' "$*" >&2
+  exit 1
+}
+
+resolve_directory() {
+  [ -d "$1" ] || fail "directory does not exist: $1"
+    (CDPATH='' cd -- "$1" && pwd -P)
+}
+
+command -v podman >/dev/null 2>&1 || fail "Podman is not installed"
+podman info >/dev/null 2>&1 || fail "Podman is not running or is not accessible"
+
+HOST_UID=$(id -u)
+HOST_GID=$(id -g)
+[ "$HOST_UID" -ne 0 ] || fail "refusing to run Pi with host UID 0"
+
+PROJECT_DIR=$(resolve_directory "$PROJECT_DIR")
+HOME_DIR=$(resolve_directory "$HOME")
+
+case $CONFIG_DIR in
+/*) ;;
+*) fail "MYPI_CONFIG_DIR must be an absolute path" ;;
+esac
+
+mkdir -p "$CONFIG_DIR"
+CONFIG_DIR=$(resolve_directory "$CONFIG_DIR")
+
+[ "$CONFIG_DIR" != / ] || fail "refusing to use / as the configuration directory"
+[ "$CONFIG_DIR" != "$HOME_DIR" ] || fail "refusing to mount the whole home directory as configuration"
+[ "$CONFIG_DIR" != "$PROJECT_DIR" ] || fail "configuration directory must differ from the project directory"
+chmod 700 "$CONFIG_DIR"
+
+TTY=false
+if [ -t 0 ] && [ -t 1 ]; then
+  TTY=true
+fi
+
+printf 'Runtime: podman\nImage: %s\nProject: %s\nConfig: %s\n' \
+  "$IMAGE" "$PROJECT_DIR" "$CONFIG_DIR"
+
+exec podman run \
+  --rm \
+  --interactive \
+  --tty="$TTY" \
+  --userns=keep-id \
+  --user "$HOST_UID:$HOST_GID" \
+  --read-only \
+  --cap-drop ALL \
+  --security-opt no-new-privileges \
+  --cpus "$CPUS" \
+  --memory "$MEMORY" \
+  --tmpfs "/tmp:rw,nosuid,nodev,size=$TMP_SIZE,mode=1777" \
+  --mount "type=bind,source=$PROJECT_DIR,target=/workspace" \
+    --mount "type=bind,source=$CONFIG_DIR,target=/home/node/.pi/agent" \
+  "$IMAGE" "$@"
